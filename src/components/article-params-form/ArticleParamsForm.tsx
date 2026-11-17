@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   backgroundColors,
   contentWidthArr,
@@ -12,24 +12,51 @@ import { ArrowButton } from 'src/ui/arrow-button';
 import { Button } from 'src/ui/button';
 import { RadioGroup } from 'src/ui/radio-group';
 import { Select } from 'src/ui/select';
-import { useOutsideClickClose } from 'src/ui/select/hooks/useOutsideClickClose';
 import { Separator } from 'src/ui/separator';
 import { Text } from 'src/ui/text';
 
+import type { FormEvent } from 'react';
 import type { ArticleStateType, OptionType } from 'src/constants/articleProps';
 
 import styles from './ArticleParamsForm.module.scss';
 
-export const ArticleParamsForm = (): React.JSX.Element => {
+type ArticleParamsFormProps = {
+  onApply: (state: ArticleStateType) => void;
+};
+
+export const ArticleParamsForm = ({
+  onApply,
+}: ArticleParamsFormProps): React.JSX.Element => {
   const [isOpen, setIsOpen] = useState(false);
   const [formState, setFormState] = useState<ArticleStateType>(defaultArticleState);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  useOutsideClickClose({
-    isOpen,
-    rootRef,
-    onChange: setIsOpen,
-  });
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handleMouseDown = (event: MouseEvent): void => {
+      const { target } = event;
+      if (target instanceof Node && !rootRef.current?.contains(target)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return (): void => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
 
   const handleToggle = (): void => {
     setIsOpen((prev) => !prev);
@@ -41,21 +68,21 @@ export const ArticleParamsForm = (): React.JSX.Element => {
       setFormState((prev) => ({ ...prev, [field]: option }));
     };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    onApply(formState);
+  };
+
   const handleReset = (): void => {
     setFormState(defaultArticleState);
+    onApply(defaultArticleState);
   };
 
   return (
     <div ref={rootRef}>
       <ArrowButton isOpen={isOpen} onClick={handleToggle} />
       <aside className={clsx(styles.container, { [styles.container_open]: isOpen })}>
-        <form
-          className={styles.form}
-          onSubmit={(event) => {
-            event.preventDefault();
-          }}
-          onReset={handleReset}
-        >
+        <form className={styles.form} onSubmit={handleSubmit} onReset={handleReset}>
           <Text as="h2" size={31} weight={800} uppercase>
             Задайте параметры
           </Text>
